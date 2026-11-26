@@ -2,7 +2,9 @@
 
 **MATLAB · Arduino · Inverse Kinematics · Motion Control**
 
-A 2-DOF planar parallel manipulator developed as a team project for MEE312 – Mechanism Design II at İzmir Kâtip Çelebi University (May 2026).
+A 2-DOF planar parallel manipulator developed as a team project for MEE312 – Mechanism Design II at İzmir Kâtip Çelebi University.
+
+**Project development:** March–May 2026 · **Academic year:** 2025–2026 · **GitHub publication:** November 2026
 
 <p align="center">
   <img src="media/robot-prototype.jpeg" width="45%" alt="Physical robot prototype">
