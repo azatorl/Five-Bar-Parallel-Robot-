@@ -32,6 +32,8 @@ flowchart TD
 
 The reviewed firmware receives the desired vertical coordinate rather than the theoretical joint angles during normal motion. MATLAB computes the kinematic configuration for visualization, while the Arduino maps the target coordinate to experimentally calibrated servo commands.
 
+[Detailed control implementation and review notes](docs/control-implementation.md)
+
 ## Design specifications
 
 | Parameter | Value |
