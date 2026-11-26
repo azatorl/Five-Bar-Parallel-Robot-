@@ -27,7 +27,7 @@ The earlier GUI is retained as development history, not a drop-in replacement.
 
 ## Reproduction requirements
 
-- MATLAB with App Designer and the missing inverse-kinematics and visualization functions.
+- MATLAB with App Designer and the separately reconstructed inverse-kinematics and visualization functions (original implementations not recovered).
 - Arduino IDE with the Servo library.
 - Arduino Uno and two MG995 servos, with an appropriately rated external servo power supply and common ground.
 - A serial port matching the local machine; the archived GUI uses COM7.
@@ -42,3 +42,11 @@ The earlier GUI is retained as development history, not a drop-in replacement.
 5. The original hardware has not been retested for this documentation. No PID loop, measured Cartesian accuracy, or hardware validation is claimed.
 
 These notes distinguish the implemented command path from the intended project workflow described in the team report.
+
+## Reconstructed simulation (portfolio addition)
+
+The geometric solver in `control/reconstructed/fivebarIK_project.m` uses the law of cosines for each two-link chain, with a positive-down y coordinate and the outward-elbow branch selection (1,2). The equivalent Python calculation was verified against the archived MATLAB home and target angles and joint coordinates; all 1,066 integer Cartesian targets in the 25–50 mm by 80–120 mm design rectangle satisfied the four link-length constraints within 1e-9 mm. This is geometric verification only, not a collision, actuator or accuracy test.
+
+A MATLAB regression test and a simulation-only UI are included in the same directory. MATLAB/Octave was not available for executing the MATLAB code itself. The original GUI v2 automatically attempts a serial connection and sends HOME on startup; disconnect physical hardware before inspecting it. The new offline UI never sends hardware commands.
+
+Original Arduino firmware is preserved in `software/sketch_may1a/`. No firmware compilation or live robot test has been performed. Original App Designer and CAD binaries require separate upload.
