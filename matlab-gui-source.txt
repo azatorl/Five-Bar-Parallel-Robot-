@@ -1,0 +1,298 @@
+classdef fivebar_gui < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                matlab.ui.Figure
+        Theta4Label             matlab.ui.control.Label
+        Theta3Label             matlab.ui.control.Label
+        Theta2Label             matlab.ui.control.Label
+        Theta1Label             matlab.ui.control.Label
+        ServoLabel              matlab.ui.control.Label
+        StatusLabel             matlab.ui.control.Label
+        WarningLabel            matlab.ui.control.Label
+        PyTargetEditField       matlab.ui.control.NumericEditField
+        PyTargetEditFieldLabel  matlab.ui.control.Label
+        MoveButton              matlab.ui.control.Button
+        HomeButton              matlab.ui.control.Button
+        ConnectButton           matlab.ui.control.Button
+        UIAxes                  matlab.ui.control.UIAxes
+    end
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: ConnectButton
+        function ConnectButtonPushed(app, event)
+    data.serialObj = [];
+data.modeLeft = 1;
+data.modeRight = 2;
+
+data.Px = 50;
+data.Py_home = 80;
+
+data.Py_min = 30;
+data.Py_max = 140;
+
+data.K_left = 3.5;
+data.K_right = 3.5;
+
+data.homeIK = fivebarIK_project(data.Px, data.Py_home, data.modeLeft, data.modeRight);
+
+if ~data.homeIK.ok
+    app.WarningLabel.Text = "WARNING: HOME IK COZULMEDI";
+    app.StatusLabel.Text = data.homeIK.message;
+    return;
+end
+
+try
+    oldData = app.UIFigure.UserData;
+
+    if isstruct(oldData) && isfield(oldData, "serialObj") && ~isempty(oldData.serialObj)
+        try
+            clear oldData.serialObj
+        catch
+        end
+    end
+catch
+end
+
+try
+    ports = serialportlist("available");
+
+    if ~any(ports == "COM7")
+        app.WarningLabel.Text = "WARNING: COM7 BULUNAMADI";
+        app.StatusLabel.Text = "Available ports: " + strjoin(ports, ", ");
+        return;
+    end
+
+    data.serialObj = serialport("COM7", 9600);
+    configureTerminator(data.serialObj, "LF");
+    pause(3);
+
+    app.UIFigure.UserData = data;
+
+    app.StatusLabel.Text = "Arduino baglandi: COM7";
+    app.WarningLabel.Text = "";
+    app.ServoLabel.Text = "Servo: -";
+    app.PyTargetEditField.Value = data.Py_home;
+
+catch ME
+    app.WarningLabel.Text = "WARNING: ARDUINO BAGLANAMADI";
+    app.StatusLabel.Text = ME.message;
+end
+        end
+
+        % Button pushed function: HomeButton
+        function HomeButtonPushed(app, event)
+     % Button pushed function: HomeButton
+function HomeButtonPushed(app, event)
+
+    data = app.UIFigure.UserData;
+
+    if isempty(data) || ~isstruct(data) || isempty(data.serialObj)
+        app.WarningLabel.Text = "WARNING: ONCE CONNECT YAP";
+        return;
+    end
+
+    % Arduino'ya home komutu gönder
+    writeline(data.serialObj, "90,90");
+
+    % Ekran bilgileri
+    app.PyTargetEditField.Value = data.Py_home;
+    app.StatusLabel.Text = "Home gonderildi.";
+    app.ServoLabel.Text = "Servo: 90,90";
+    app.WarningLabel.Text = "";
+
+    % Home noktasi icin inverse kinematics
+    result = fivebarIK_project(data.Px, data.Py_home, data.modeLeft, data.modeRight);
+
+    if ~result.ok
+        app.WarningLabel.Text = "WARNING: HOME IK COZULMEDI";
+        app.StatusLabel.Text = result.message;
+        return;
+    end
+
+    % Theta degerlerini sadece ekranda goster
+    app.Theta1Label.Text = "theta1: " + num2str(result.theta1, "%.2f");
+    app.Theta2Label.Text = "theta2: " + num2str(result.theta2, "%.2f");
+    app.Theta3Label.Text = "theta3: " + num2str(result.theta3, "%.2f");
+    app.Theta4Label.Text = "theta4: " + num2str(result.theta4, "%.2f");
+
+    % Cizim
+    cla(app.UIAxes);
+    hold(app.UIAxes, "on");
+    grid(app.UIAxes, "on");
+    axis(app.UIAxes, "equal");
+
+    O1 = [0 0];
+    O2 = [100 0];
+    P = [data.Px data.Py_home];
+    A = result.A;
+    B = result.B;
+
+    plot(app.UIAxes, [O1(1) A(1)], [O1(2) A(2)], "LineWidth", 3);
+    plot(app.UIAxes, [A(1) P(1)], [A(2) P(2)], "LineWidth", 3);
+    plot(app.UIAxes, [O2(1) B(1)], [O2(2) B(2)], "LineWidth", 3);
+    plot(app.UIAxes, [B(1) P(1)], [B(2) P(2)], "LineWidth", 3);
+
+    plot(app.UIAxes, O1(1), O1(2), "ko", "MarkerFaceColor", "k");
+    plot(app.UIAxes, O2(1), O2(2), "ko", "MarkerFaceColor", "k");
+    plot(app.UIAxes, A(1), A(2), "bo", "MarkerFaceColor", "b");
+    plot(app.UIAxes, B(1), B(2), "bo", "MarkerFaceColor", "b");
+    plot(app.UIAxes, P(1), P(2), "ro", "MarkerFaceColor", "r");
+
+    yline(app.UIAxes, data.Py_home, "--", "Home Py=80");
+    xline(app.UIAxes, data.Px, "--", "Center Px=50");
+
+    set(app.UIAxes, "YDir", "reverse");
+    xlim(app.UIAxes, [-50 150]);
+    ylim(app.UIAxes, [-20 170]);
+
+    title(app.UIAxes, "Home Position");
+    xlabel(app.UIAxes, "Px (mm)");
+    ylabel(app.UIAxes, "Py (mm)");
+
+    hold(app.UIAxes, "off");
+
+end
+        end
+
+        % Button pushed function: MoveButton
+        function MoveButtonPushed(app, event)
+           app.StatusLabel.Text = "Move calisti.";
+
+data = app.UIFigure.UserData;
+
+if isempty(data) || ~isstruct(data)
+    app.WarningLabel.Text = "WARNING: ONCE CONNECT YAP";
+    app.StatusLabel.Text = "Data yok. Once Connect.";
+    return;
+end
+
+if ~isfield(data, "serialObj") || isempty(data.serialObj)
+    app.WarningLabel.Text = "WARNING: SERIAL BAGLANTI YOK";
+    app.StatusLabel.Text = "Connect tekrar yap.";
+    return;
+end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.UIFigure);
+            title(app.UIAxes, 'Title')
+            xlabel(app.UIAxes, 'X')
+            ylabel(app.UIAxes, 'Y')
+            zlabel(app.UIAxes, 'Z')
+            app.UIAxes.XColor = [0 1 0];
+            app.UIAxes.YColor = [0 1 0];
+            app.UIAxes.XGrid = 'on';
+            app.UIAxes.YGrid = 'on';
+            app.UIAxes.Position = [302 35 292 240];
+
+            % Create ConnectButton
+            app.ConnectButton = uibutton(app.UIFigure, 'push');
+            app.ConnectButton.ButtonPushedFcn = createCallbackFcn(app, @ConnectButtonPushed, true);
+            app.ConnectButton.Position = [18 446 100 22];
+            app.ConnectButton.Text = 'Connect Button';
+
+            % Create HomeButton
+            app.HomeButton = uibutton(app.UIFigure, 'push');
+            app.HomeButton.ButtonPushedFcn = createCallbackFcn(app, @HomeButtonPushed, true);
+            app.HomeButton.Position = [152 446 100 22];
+            app.HomeButton.Text = {'Home Button'; ''};
+
+            % Create MoveButton
+            app.MoveButton = uibutton(app.UIFigure, 'push');
+            app.MoveButton.ButtonPushedFcn = createCallbackFcn(app, @MoveButtonPushed, true);
+            app.MoveButton.Position = [286 446 100 22];
+            app.MoveButton.Text = 'Move Button';
+
+            % Create PyTargetEditFieldLabel
+            app.PyTargetEditFieldLabel = uilabel(app.UIFigure);
+            app.PyTargetEditFieldLabel.HorizontalAlignment = 'right';
+            app.PyTargetEditFieldLabel.Position = [117 380 55 22];
+            app.PyTargetEditFieldLabel.Text = 'Py Target';
+
+            % Create PyTargetEditField
+            app.PyTargetEditField = uieditfield(app.UIFigure, 'numeric');
+            app.PyTargetEditField.Position = [187 380 100 22];
+
+            % Create WarningLabel
+            app.WarningLabel = uilabel(app.UIFigure);
+            app.WarningLabel.FontSize = 10;
+            app.WarningLabel.Interpreter = 'tex';
+            app.WarningLabel.Position = [39 298 347 41];
+            app.WarningLabel.Text = 'WarningLabel';
+
+            % Create StatusLabel
+            app.StatusLabel = uilabel(app.UIFigure);
+            app.StatusLabel.FontSize = 8;
+            app.StatusLabel.Position = [64 135 223 114];
+            app.StatusLabel.Text = 'StatusLabel';
+
+            % Create ServoLabel
+            app.ServoLabel = uilabel(app.UIFigure);
+            app.ServoLabel.Position = [52 58 235 49];
+            app.ServoLabel.Text = 'ServoLabel';
+
+            % Create Theta1Label
+            app.Theta1Label = uilabel(app.UIFigure);
+            app.Theta1Label.Position = [547 446 49 22];
+            app.Theta1Label.Text = 'theta1: -';
+
+            % Create Theta2Label
+            app.Theta2Label = uilabel(app.UIFigure);
+            app.Theta2Label.Position = [547 410 49 22];
+            app.Theta2Label.Text = 'theta2: -';
+
+            % Create Theta3Label
+            app.Theta3Label = uilabel(app.UIFigure);
+            app.Theta3Label.Position = [548 370 49 22];
+            app.Theta3Label.Text = 'theta3: -';
+
+            % Create Theta4Label
+            app.Theta4Label = uilabel(app.UIFigure);
+            app.Theta4Label.Position = [547 338 49 22];
+            app.Theta4Label.Text = 'theta4: -';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = fivebar_gui
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end

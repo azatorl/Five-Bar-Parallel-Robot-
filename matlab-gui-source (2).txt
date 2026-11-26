@@ -1,0 +1,402 @@
+classdef denem2 < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure              matlab.ui.Figure
+        HomeButton            matlab.ui.control.Button
+        MoveButton            matlab.ui.control.Button
+        SendButton            matlab.ui.control.Button
+        PyTargetmmEditField   matlab.ui.control.NumericEditField
+        PyTargetmmLabel       matlab.ui.control.Label
+        theta1EditField       matlab.ui.control.NumericEditField
+        theta1EditFieldLabel  matlab.ui.control.Label
+        theta4EditField       matlab.ui.control.NumericEditField
+        theta4EditFieldLabel  matlab.ui.control.Label
+        theta3EditField       matlab.ui.control.NumericEditField
+        theta3EditFieldLabel  matlab.ui.control.Label
+        theta2EditField       matlab.ui.control.NumericEditField
+        theta2EditFieldLabel  matlab.ui.control.Label
+        UIAxes                matlab.ui.control.UIAxes
+    end
+
+    
+    properties (Access = private)
+        Property % Description
+    end
+    
+    properties (Access = public)
+        Property2 % Description
+        Property3 % Description
+    end
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Code that executes after component creation
+        function startupFcn(app)
+          app.UIFigure.UserData = struct();
+
+    % ============================================================
+    % Store all project settings in app.UIFigure.UserData
+    % ============================================================
+
+    app.UIFigure.UserData.port = "COM7";
+    app.UIFigure.UserData.baud = 9600;
+
+    app.UIFigure.UserData.modeLeft = 1;
+    app.UIFigure.UserData.modeRight = 2;
+
+    app.UIFigure.UserData.Px = 50;
+    app.UIFigure.UserData.PyHome = 80;
+    app.UIFigure.UserData.PyMin = 80;
+    app.UIFigure.UserData.PyMax = 120;
+
+    app.UIFigure.UserData.isConnected = false;
+    app.UIFigure.UserData.serialObj = [];
+
+    % ============================================================
+    % Initial UI values
+    % ============================================================
+
+    app.PyTargetmmEditField.Value = app.UIFigure.UserData.PyHome;
+
+   
+    app.theta1EditField.Value = 0;
+    app.theta2EditField.Value = 0;
+    app.theta3EditField.Value = 0;
+    app.theta4EditField.Value = 0;
+
+    title(app.UIAxes, 'Five-Bar Robot');
+    xlabel(app.UIAxes, 'Px (mm)');
+    ylabel(app.UIAxes, 'Py (mm)');
+    grid(app.UIAxes, 'on');
+    axis(app.UIAxes, 'equal');
+
+    % ============================================================
+    % Try Arduino connection automatically
+    % ============================================================
+
+    try
+        app.UIFigure.UserData.serialObj = serialport(app.UIFigure.UserData.port, app.UIFigure.UserData.baud);
+        configureTerminator(app.UIFigure.UserData.serialObj, "LF");
+        pause(2);
+
+        app.UIFigure.UserData.isConnected = true;
+
+        writeline(app.UIFigure.UserData.serialObj, "HOME");
+
+    catch
+        app.UIFigure.UserData.isConnected = false;
+    end
+
+    % ============================================================
+    % Draw home position
+    % ============================================================
+
+    targetPy = app.UIFigure.UserData.PyHome;
+
+    result = fivebarIK_project( ...
+        app.UIFigure.UserData.Px, ...
+        targetPy, ...
+        app.UIFigure.UserData.modeLeft, ...
+        app.UIFigure.UserData.modeRight);
+
+    if result.ok
+        drawFivebarOnAxes(app.UIAxes, app.UIFigure.UserData.Px, targetPy, result.A, result.B);
+
+        title(app.UIAxes, sprintf('Five-Bar Robot | Px = %.1f mm | Py = %.1f mm', ...
+            app.UIFigure.UserData.Px, targetPy));
+
+        app.theta1EditField.Value = result.theta1;
+        app.theta2EditField.Value = result.theta2;
+        app.theta3EditField.Value = result.theta3;
+        app.theta4EditField.Value = result.theta4;
+   
+end 
+        end
+
+        % Button pushed function: MoveButton
+        function MoveButtonPushed(app, event)
+        
+
+    % ============================================================
+    % Read target Py
+    % ============================================================
+
+    targetPy = round(app.PyTargetmmEditField.Value);
+
+    % ============================================================
+    % Workspace limit control
+    % ============================================================
+
+    if targetPy < app.UIFigure.UserData.PyMin
+        targetPy = app.UIFigure.UserData.PyMin;
+
+        uialert(app.UIFigure, ...
+            'Minimum Py is 80 mm. Target was limited to 80 mm.', ...
+            'Workspace Limit');
+    end
+
+    if targetPy > app.UIFigure.UserData.PyMax
+        targetPy = app.UIFigure.UserData.PyMax;
+
+        uialert(app.UIFigure, ...
+            'Maximum Py is 120 mm. Target was limited to 120 mm.', ...
+            'Workspace Limit');
+    end
+
+    app.PyTargetmmEditField.Value = targetPy;
+
+    % ============================================================
+    % Inverse kinematics and drawing
+    % ============================================================
+
+    result = fivebarIK_project( ...
+        app.UIFigure.UserData.Px, ...
+        targetPy, ...
+        app.UIFigure.UserData.modeLeft, ...
+        app.UIFigure.UserData.modeRight);
+
+    if ~result.ok
+        uialert(app.UIFigure, result.message, 'IK Error');
+        return;
+    end
+
+    drawFivebarOnAxes(app.UIAxes, app.UIFigure.UserData.Px, targetPy, result.A, result.B);
+
+    title(app.UIAxes, sprintf('Five-Bar Robot | Px = %.1f mm | Py = %.1f mm', ...
+        app.UIFigure.UserData.Px, targetPy));
+
+    app.theta1EditField.Value = result.theta1;
+    app.theta2EditField.Value = result.theta2;
+    app.theta3EditField.Value = result.theta3;
+    app.theta4EditField.Value = result.theta4;
+
+    % ============================================================
+    % Send command to Arduino
+    % ============================================================
+
+    if app.UIFigure.UserData.isConnected
+        try
+            packet = "Y:" + string(targetPy);
+            writeline(app.UIFigure.UserData.serialObj, packet);
+
+        catch
+            app.UIFigure.UserData.isConnected = false;
+
+            uialert(app.UIFigure, ...
+                'Arduino connection error. The robot was drawn only.', ...
+                'Serial Error');
+        end
+    else
+        uialert(app.UIFigure, ...
+            'Arduino is not connected. The robot was drawn only.', ...
+            'Serial Warning');
+    
+
+end
+        end
+
+        % Callback function
+        function RunButtonPushed(app, event)
+       
+
+        end
+
+        % Button pushed function: HomeButton
+        function HomeButtonPushed(app, event)
+      
+    targetPy = 80;
+    app.PyTargetmmEditField.Value = targetPy;
+
+    result = fivebarIK_project( ...
+        app.UIFigure.UserData.Px, ...
+        targetPy, ...
+        app.UIFigure.UserData.modeLeft, ...
+        app.UIFigure.UserData.modeRight);
+
+    if ~result.ok
+        uialert(app.UIFigure, result.message, 'IK Error');
+        return;
+    end
+
+    drawFivebarOnAxes(app.UIAxes, app.UIFigure.UserData.Px, targetPy, result.A, result.B);
+
+    title(app.UIAxes, sprintf('Home Position | Px = %.1f mm | Py = %.1f mm', ...
+        app.UIFigure.UserData.Px, targetPy));
+
+    app.theta1EditField.Value = result.theta1;
+    app.theta2EditField.Value = result.theta2;
+    app.theta3EditField.Value = result.theta3;
+    app.theta4EditField.Value = result.theta4;
+
+    try
+        if isempty(app.UIFigure.UserData.serialObj) || ~isvalid(app.UIFigure.UserData.serialObj)
+            app.UIFigure.UserData.serialObj = serialport(app.UIFigure.UserData.port, app.UIFigure.UserData.baud);
+            configureTerminator(app.UIFigure.UserData.serialObj, "LF");
+            pause(3);
+            app.UIFigure.UserData.isConnected = true;
+        end
+
+        writeline(app.UIFigure.UserData.serialObj, "HOME");
+
+    catch ME
+        app.UIFigure.UserData.isConnected = false;
+        app.UIFigure.UserData.serialObj = [];
+
+        uialert(app.UIFigure, ...
+            "Arduino connection error: " + string(ME.message), ...
+            'Serial Error');
+    
+end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.Position = [100 100 640 480];
+            app.UIFigure.Name = 'MATLAB App';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.UIFigure);
+            title(app.UIAxes, 'Five-Bar Robot')
+            xlabel(app.UIAxes, 'Px (mm)')
+            ylabel(app.UIAxes, 'Py (mm)')
+            zlabel(app.UIAxes, 'Z')
+            app.UIAxes.FontWeight = 'bold';
+            app.UIAxes.XColor = [0 0 1];
+            app.UIAxes.YColor = [0 0 1];
+            app.UIAxes.GridColor = [0.651 0.651 0.651];
+            app.UIAxes.XGrid = 'on';
+            app.UIAxes.YGrid = 'on';
+            app.UIAxes.Position = [20 18 405 451];
+
+            % Create theta2EditFieldLabel
+            app.theta2EditFieldLabel = uilabel(app.UIFigure);
+            app.theta2EditFieldLabel.HorizontalAlignment = 'right';
+            app.theta2EditFieldLabel.FontWeight = 'bold';
+            app.theta2EditFieldLabel.FontColor = [1 0.3922 0.0392];
+            app.theta2EditFieldLabel.Position = [496 415 40 22];
+            app.theta2EditFieldLabel.Text = 'theta2';
+
+            % Create theta2EditField
+            app.theta2EditField = uieditfield(app.UIFigure, 'numeric');
+            app.theta2EditField.FontWeight = 'bold';
+            app.theta2EditField.Position = [544 415 52 22];
+
+            % Create theta3EditFieldLabel
+            app.theta3EditFieldLabel = uilabel(app.UIFigure);
+            app.theta3EditFieldLabel.HorizontalAlignment = 'right';
+            app.theta3EditFieldLabel.FontWeight = 'bold';
+            app.theta3EditFieldLabel.FontColor = [1 0.3922 0.0392];
+            app.theta3EditFieldLabel.Position = [496 383 40 22];
+            app.theta3EditFieldLabel.Text = 'theta3';
+
+            % Create theta3EditField
+            app.theta3EditField = uieditfield(app.UIFigure, 'numeric');
+            app.theta3EditField.FontWeight = 'bold';
+            app.theta3EditField.Position = [544 383 52 22];
+
+            % Create theta4EditFieldLabel
+            app.theta4EditFieldLabel = uilabel(app.UIFigure);
+            app.theta4EditFieldLabel.HorizontalAlignment = 'right';
+            app.theta4EditFieldLabel.FontWeight = 'bold';
+            app.theta4EditFieldLabel.FontColor = [1 0.3922 0.0392];
+            app.theta4EditFieldLabel.Position = [496 351 40 22];
+            app.theta4EditFieldLabel.Text = 'theta4';
+
+            % Create theta4EditField
+            app.theta4EditField = uieditfield(app.UIFigure, 'numeric');
+            app.theta4EditField.FontWeight = 'bold';
+            app.theta4EditField.Position = [544 351 52 22];
+
+            % Create theta1EditFieldLabel
+            app.theta1EditFieldLabel = uilabel(app.UIFigure);
+            app.theta1EditFieldLabel.HorizontalAlignment = 'right';
+            app.theta1EditFieldLabel.FontWeight = 'bold';
+            app.theta1EditFieldLabel.FontColor = [1 0.3922 0.0392];
+            app.theta1EditFieldLabel.Position = [495 447 40 22];
+            app.theta1EditFieldLabel.Text = 'theta1';
+
+            % Create theta1EditField
+            app.theta1EditField = uieditfield(app.UIFigure, 'numeric');
+            app.theta1EditField.FontWeight = 'bold';
+            app.theta1EditField.Position = [544 447 51 22];
+
+            % Create PyTargetmmLabel
+            app.PyTargetmmLabel = uilabel(app.UIFigure);
+            app.PyTargetmmLabel.HorizontalAlignment = 'right';
+            app.PyTargetmmLabel.FontWeight = 'bold';
+            app.PyTargetmmLabel.FontColor = [1 0 0];
+            app.PyTargetmmLabel.Position = [476 52 99 22];
+            app.PyTargetmmLabel.Text = 'Py Target (mm): ';
+
+            % Create PyTargetmmEditField
+            app.PyTargetmmEditField = uieditfield(app.UIFigure, 'numeric');
+            app.PyTargetmmEditField.FontWeight = 'bold';
+            app.PyTargetmmEditField.FontColor = [1 0 0];
+            app.PyTargetmmEditField.Position = [585 52 32 22];
+
+            % Create SendButton
+            app.SendButton = uibutton(app.UIFigure, 'push');
+            app.SendButton.FontWeight = 'bold';
+            app.SendButton.FontColor = [0 0 1];
+            app.SendButton.Position = [495 137 100 22];
+            app.SendButton.Text = 'Send';
+
+            % Create MoveButton
+            app.MoveButton = uibutton(app.UIFigure, 'push');
+            app.MoveButton.ButtonPushedFcn = createCallbackFcn(app, @MoveButtonPushed, true);
+            app.MoveButton.FontWeight = 'bold';
+            app.MoveButton.FontColor = [0 0 1];
+            app.MoveButton.Position = [495 203 100 22];
+            app.MoveButton.Text = 'Move';
+
+            % Create HomeButton
+            app.HomeButton = uibutton(app.UIFigure, 'push');
+            app.HomeButton.ButtonPushedFcn = createCallbackFcn(app, @HomeButtonPushed, true);
+            app.HomeButton.FontWeight = 'bold';
+            app.HomeButton.FontColor = [0 0 1];
+            app.HomeButton.Position = [496 169 100 22];
+            app.HomeButton.Text = 'Home';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = denem2
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            % Execute the startup function
+            runStartupFcn(app, @startupFcn)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
