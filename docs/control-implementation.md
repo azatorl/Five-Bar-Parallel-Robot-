@@ -49,4 +49,4 @@ The geometric solver in `control/reconstructed/fivebarIK_project.m` uses the law
 
 A MATLAB regression test and a simulation-only UI are included in the same directory. MATLAB/Octave was not available for executing the MATLAB code itself. The original GUI v2 automatically attempts a serial connection and sends HOME on startup; disconnect physical hardware before inspecting it. The new offline UI never sends hardware commands.
 
-Original Arduino firmware is preserved in `software/sketch_may1a/`. No firmware compilation or live robot test has been performed. Original App Designer and CAD binaries require separate upload.
+Original Arduino firmware is preserved in `software/sketch_may1a/`. No firmware compilation or live robot test has been performed. The original App Designer archives and CAD models are now available in `control/archive/` and `cad/`. Their original filenames are retained where needed for class and assembly dependencies.
