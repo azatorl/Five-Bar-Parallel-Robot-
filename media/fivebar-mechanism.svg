@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="390" viewBox="0 0 760 390">
+<rect width="760" height="390" rx="18" fill="#f6f8fa"/>
+<g font-family="Arial,sans-serif" fill="#24292f">
+<text x="30" y="35" font-size="20" font-weight="bold">Five-bar parallel manipulator</text>
+<text x="30" y="55" font-size="13">Home geometry · Px = 50 mm, Py = 80 mm · schematic, not CAD</text>
+<path d="M305 105H455" stroke="#57606a" stroke-width="12" stroke-linecap="round"/>
+<path d="M305 105L165 159 M455 105L595 159" stroke="#0969da" stroke-width="12" stroke-linecap="round"/>
+<path d="M165 159L380 225L595 159" fill="none" stroke="#bf5700" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M380 105V285" stroke="#8c959f" stroke-dasharray="5 5" stroke-width="1.5"/>
+<g fill="#fff" stroke="#24292f" stroke-width="3"><circle cx="305" cy="105" r="10"/><circle cx="455" cy="105" r="10"/><circle cx="165" cy="159" r="8"/><circle cx="595" cy="159" r="8"/></g>
+<circle cx="380" cy="225" r="9" fill="#cf222e"/>
+<path d="M380 240v26" stroke="#cf222e" stroke-width="2"/><path d="M375 260l5 8 5-8" fill="none" stroke="#cf222e" stroke-width="2"/>
+<text x="275" y="86" font-size="15">O₁</text><text x="450" y="86" font-size="15">O₂</text><text x="143" y="149" font-size="15">A</text><text x="605" y="149" font-size="15">B</text><text x="393" y="229" font-size="15">P</text>
+<text x="380" y="93" text-anchor="middle" font-size="13">100 mm</text>
+<text x="209" y="114" font-size="13" fill="#0969da">100 mm</text><text x="500" y="114" font-size="13" fill="#0969da">100 mm</text>
+<text x="245" y="210" font-size="13" fill="#bf5700">150 mm</text><text x="483" y="210" font-size="13" fill="#bf5700">150 mm</text>
+<text x="395" y="266" font-size="12" fill="#cf222e">Payload</text>
+<path d="M50 260h50m-50 0v45" stroke="#57606a" stroke-width="2"/><path d="M94 255l7 5-7 5M45 299l5 7 5-7" fill="none" stroke="#57606a" stroke-width="2"/><text x="105" y="264" font-size="12">x</text><text x="41" y="320" font-size="12">y</text>
+<rect x="30" y="327" width="700" height="40" rx="8" fill="#eaeef2"/><text x="48" y="352" font-size="13">Blue: actuated links    ·    Orange: passive links    ·    Red: end effector</text>
+</g></svg>
